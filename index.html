@@ -99,10 +99,10 @@
 </div>
 
 <script>
-// --- KONFIGURASI API ---
+// --- KONFIGURASI API (PENAMAAN MODEL DIPERBAIKI) ---
 const GEMINI_API_KEY = "AIzaSyBjI6gCmF83yDzWLQOX3tBkCL3Nrgzcsnk"; 
-const PRIMARY_MODEL = "gemini-2.5-flash";
-const FALLBACK_MODEL = "gemini-1.5-flash";
+const PRIMARY_MODEL = "gemini-1.5-flash-latest"; // Gunakan 1.5-flash-latest sebagai utama agar stabil
+const FALLBACK_MODEL = "gemini-1.5-pro-latest";  // Pro-latest sebagai cadangan
 
 const FIELDS = [
     { key: "no_nota",      label: "No Nota" },
@@ -181,25 +181,24 @@ analyzeBtn.addEventListener("click", async () => {
     statusEl.style.display = "flex";
     errorBox.style.display = "none";
     resultSection.style.display = "none";
-    modelBadge.textContent = "Trying 2.5...";
-    statusText.textContent = "Memproses dengan Gemini 2.5...";
+    modelBadge.textContent = "Trying Flash...";
+    statusText.textContent = "Memproses dengan Gemini Flash...";
 
     try {
-        // PERCOBAAN 1: Menggunakan Gemini 2.5
         let response = await callGemini(PRIMARY_MODEL, currentBase64, currentMime);
         let result = await response.json();
 
-        // JIKA 2.5 SIBUK (High Demand), OTOMATIS PINDAH KE 1.5
-        if (!response.ok && result.error?.message?.includes("demand")) {
-            console.warn("2.5 Busy, falling back to 1.5");
-            modelBadge.textContent = "2.5 Busy -> Using 1.5";
-            statusText.textContent = "Server 2.5 padat, beralih ke Gemini 1.5...";
+        // JIKA FLASH SIBUK, PINDAH KE PRO
+        if (!response.ok && (result.error?.message?.includes("demand") || response.status === 503)) {
+            console.warn("Flash Busy, falling back to Pro...");
+            modelBadge.textContent = "Flash Busy -> Using Pro";
+            statusText.textContent = "Flash padat, beralih ke Gemini Pro...";
             
             response = await callGemini(FALLBACK_MODEL, currentBase64, currentMime);
             result = await response.json();
         }
 
-        if (!response.ok) throw new Error(result.error?.message || "Gagal memproses.");
+        if (!response.ok) throw new Error(result.error?.message || `Error ${response.status}: Gagal memproses.`);
 
         const textResponse = result.candidates[0].content.parts[0].text;
         const cleanedJson = textResponse.replace(/```json|```/gi, "").trim();
